@@ -1,0 +1,302 @@
+---
+title: "Climate, topography, and vegetation in NNP"
+author: "Lucky Barahebuza"
+date: "`r Sys.Date()`"
+format:
+  pdf: default
+bibliography: references.bib
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+# **Climate variation in Nyungwe National Park (NNP), Rwanda**
+
+*------------------------------------------------------------*
+
+## How does the monthly temperature and precipitation vary in NNP?
+
+In this document, I am going to use the WorldClim dataset spanning between 1970 - 2000 to compare temperature variability in Nyungwe National Park, Rwanda. I am using the 0.5 minutes of a degree resolution, which is approximately 1 km resolution. This means, we can have an approximate value of temperature and precipitation of 1 km^2^ between 1970 and 2000.
+
+## Start by installing and loading necessary packages, then get data from worldClim climate data.
+
+```{r setup, include=TRUE}
+# library
+library(geodata)
+library(raster)
+library(tidyverse)
+library(ggplot2)
+library(sf)
+library(ggspatial)
+
+# loading temperature and precipitation data from WorldClim
+
+temp_min <- worldclim_global(var = "tmin", res = 0.5, path = "01_data")
+temp_max <- worldclim_global(var = "tmax", res = 0.5, path = "01_data")
+temp_mean <- worldclim_global(var = "tavg", res = 0.5, path = "01_data")
+prec <- worldclim_global(var = "prec", res = 0.5, path = "01_data")
+
+# loading Nyungwe National Park shapefile
+park_shp <- st_read("../01_data/nyungweData/WDPA_WDOECM_Feb2025_Public_9148_shp-polygons.shp")
+
+```
+
+## Plot Nyungwe shapefile
+
+```{r}
+# Ploting Nyungwe National park
+
+ggplot() +
+  geom_sf(data = park_shp, fill = "darkgreen", color = "black") +
+  annotation_north_arrow(
+    location = "bl",
+    which_north = "true",
+    style = north_arrow_fancy_orienteering()
+  )+
+  theme_minimal() +
+  labs(title = "Nyungwe National Park, Rwanda")
+```
+
+## How is the monthly minimum temperature changing in Nyungwe?
+
+Using the mininum temperature value from the worldclim climate data, we can see how this varies in NNP. As seen in the @fig-figureMin, Jun, Jul, and Aug tends to have the coldest minimun temperature compared to other months.
+
+```{r}
+#| label: fig-figureMin
+#| fig-cap: "Minimum Temperature in NNP."
+#| warning: true
+#| fig-width: 10
+#| fig-height: 8
+
+# crop raster files to the extent of Nyungwe National Park
+
+nyungwe_crop <- raster::crop(temp_min, park_shp)
+nyungwe_mask <- raster::mask(nyungwe_crop, park_shp)
+
+# creating a dataframe to use
+
+nyungwe_df <- as.data.frame(nyungwe_mask, xy = TRUE, na.rm = TRUE)
+colnames(nyungwe_df)[3:14] <- month.abb
+colnames(nyungwe_df)[1:2] <- c("longitude", "latitude")
+
+# reshape the data to long format using tidyr
+
+nyungwe_df <- pivot_longer(nyungwe_df, cols = Jan:Dec,
+                           names_to = "month", values_to = "temperature")
+
+# converting month to an ordered factor
+
+nyungwe_df$month <- factor(nyungwe_df$month, levels = month.abb)
+
+# plot using ggplot
+
+ggplot()+
+  geom_tile(data = nyungwe_df, aes(x = longitude, y = latitude,
+                                   fill = temperature))+
+  geom_sf(data = park_shp, fill = NA, color = "black")+
+  scale_fill_viridis_c( limits = c(8, 14))+
+  facet_wrap(~month, ncol = 4)+
+  theme_minimal()+
+  labs(title = "Minimun Temperature in Nyungwe (1970 - 2000)", fill = "°C")
+
+```
+
+## How does the monthly maximum temperature vary in Nyungwe?
+
+Using the maximum temperature values, we can see that the maximum monthly temperature range between 16 and 24 degrees. The months of August and September display the highest maximum temperature, while the month of May display lowest maximum temperature. See @fig-figureMax
+
+```{r}
+#| label: fig-figureMax
+#| fig-cap: "Maximum Temperature in NNP."
+#| warning: true
+#| fig-width: 10
+#| fig-height: 8
+
+# crop raster files to the extent of Nyungwe National Park
+
+nyungwe_maxt_crop <- raster::crop(temp_max, park_shp)
+nyungwe_maxt_mask <- raster::mask(nyungwe_maxt_crop, park_shp)
+
+# creating a dataframe to use
+
+nyungwe_max_df <- as.data.frame(nyungwe_maxt_mask, xy = TRUE, na.rm = TRUE)
+colnames(nyungwe_max_df)[3:14] <- month.abb
+colnames(nyungwe_max_df)[1:2] <- c("longitude", "latitude")
+
+# reshape the data to long format using tidyr
+
+nyungwe_max_df <- pivot_longer(nyungwe_max_df,
+                               cols = Jan:Dec, names_to = "month",
+                               values_to = "temperature")
+
+# converting month to an ordered factor
+
+nyungwe_max_df$month <- factor(nyungwe_max_df$month, levels = month.abb)
+
+# plot using ggplot
+
+ggplot()+
+  geom_tile(data = nyungwe_max_df, aes(x = longitude, y = latitude,
+                                       fill = temperature))+
+  geom_sf(data = park_shp, fill = NA, color = "black")+
+  scale_fill_viridis_c( limits = c(16, 24))+
+  facet_wrap(~month, ncol = 4)+
+  theme_minimal()+
+  labs(title = "Maximum Temperature in Nyungwe (1970 - 2000)", fill = "°C")
+
+```
+
+## How is the monthly average temperature changing in Nyungwe?
+
+On average, the monthly temperature range between 12 and 20 degrees celsius, the months of May, June, and JUly being likely the coldest months of the year as seen in @fig-figureAv.
+
+```{r}
+#| label: fig-figureAv
+#| fig-cap: "Average Temperature in NNP."
+#| warning: true
+#| fig-width: 10
+#| fig-height: 8 
+
+# crop raster files to the extent of Nyungwe National Park
+
+nyungwe_avg_crop <- raster::crop(temp_mean, park_shp)
+nyungwe_avg_mask <- raster::mask(nyungwe_avg_crop, park_shp)
+
+# creating a dataframe to use
+
+nyungwe_avg_df <- as.data.frame(nyungwe_avg_mask, xy = TRUE, na.rm = TRUE)
+colnames(nyungwe_avg_df)[3:14] <- month.abb
+colnames(nyungwe_avg_df)[1:2] <- c("longitude", "latitude")
+
+# reshape the data to long format using tidyr
+
+nyungwe_avg_df <- pivot_longer(nyungwe_avg_df, 
+                               cols = Jan:Dec, names_to = "month",
+                               values_to = "temperature")
+
+# converting month to an ordered factor
+
+nyungwe_avg_df$month <- factor(nyungwe_avg_df$month, levels = month.abb)
+
+# plot using ggplot
+
+ggplot()+
+  geom_tile(data = nyungwe_avg_df, aes(x = longitude, y = latitude,
+                                       fill = temperature))+
+  geom_sf(data = park_shp, fill = NA, color = "black")+
+  scale_fill_viridis_c(limits = c(12, 20))+
+  facet_wrap(~month, ncol = 4)+
+  theme_minimal()+
+  labs(title = "Average Temperature in Nyungwe (1970 - 2000)", fill = "°C")
+
+```
+
+# How does the monthly precipitation vary in Nyungwe?
+
+The monthly precipitation range between 50 to 250 mm. The months of March, April, and May are the wettest months of the year, and June, July, and August the driest months of the year, see @fig-figurePrec.
+
+```{r}
+#| label: fig-figurePrec
+#| fig-cap: "Monthly precipitation in NNP."
+#| warning: true
+#| fig-width: 10
+#| fig-height: 8
+
+# crop raster files to the extent of Nyungwe National Park
+
+nyungwe_prec_crop <- raster::crop(prec, park_shp)
+nyungwe_prec_mask <- raster::mask(nyungwe_prec_crop, park_shp)
+
+# creating a dataframe to use
+
+nyungwe_prec_df <- as.data.frame(nyungwe_prec_mask, xy = TRUE, na.rm = TRUE)
+colnames(nyungwe_prec_df)[3:14] <- month.abb
+colnames(nyungwe_prec_df)[1:2] <- c("longitude", "latitude")
+
+# reshape the data to long format using tidyr
+
+nyungwe_prec_df <- pivot_longer(nyungwe_prec_df, cols = Jan:Dec,
+                                names_to = "month", values_to = "precipitation")
+
+# converting month to an ordered factor
+
+nyungwe_prec_df$month <- factor(nyungwe_prec_df$month, levels = month.abb)
+
+# plot using ggplot
+
+ggplot()+
+  geom_tile(data = nyungwe_prec_df, aes(x = longitude, y = latitude, 
+                                        fill = precipitation))+
+  geom_sf(data = park_shp, fill = NA, color = "black")+
+  scale_fill_viridis_c(limits = c(12, 270))+
+  facet_wrap(~month, ncol = 4)+
+  theme_minimal()+
+  labs(title = "Monthly Precipitation in Nyungwe (1970 - 2000)", fill = "mm")
+```
+
+**Overall, NNP is characterized by varying temperature depending on the topography. As seen in the preveous temperature figures, the west part of NNP is the hottest compared to the east part**
+
+# How is the elevation changing in Nyungwe?
+
+Regarding the elevation gradient in NNP, @fig-figurElv displays 3 different elevation gradient. The low elevation (less than 2100 m abose see level), mid elevation (found between 2101 and 2600 m), and high elevation (found above 2600 m). These elevation range are characterized by different vegetation type as described in various studies in Nyungwe such as the one by [Fischer et al. (2024)](https://phytotaxa.mapress.com/pt/article/view/phytotaxa.673.1.1).
+
+```{r}
+#| label: fig-figurElv
+#| fig-cap: "Elevation gradients in NNP."
+#| warning: true
+
+# getting elevation data from Rwanda using geodata package
+
+elev <- elevation_30s(countr = "Rwanda", path = "01_data")
+
+nyungwe_elev <- raster::crop(elev, park_shp)
+nyungwe_elev_mask <- raster::mask(nyungwe_elev, park_shp)
+
+nyungwe_elev_df <- as.data.frame(nyungwe_elev_mask, xy = TRUE, na.rm = TRUE)
+colnames(nyungwe_elev_df)[1:2] <- c("longitude", "latitude")
+colnames(nyungwe_elev_df)[3] <- "elevation"
+
+# define the elevation range
+
+nyungwe_elev_df$elevRange <- cut(nyungwe_elev_df$elevation,
+                                 breaks = c(-Inf, 2100, 2600, Inf),
+                                 labels = c("lowElevation (<= 2100)", 
+                                            "midElevation (2101 - 2600)",
+                                            "highElevation (> 2600)"))
+
+# plot elevation gradient using ggplot
+
+ggplot()+
+  geom_tile(data = nyungwe_elev_df, aes(x = longitude, y = latitude, 
+                                        fill = elevRange))+
+  geom_sf(data = park_shp, fill = NA, color = "black")+
+  scale_color_manual(values = c("darkblue", "darkgreen", "darkred"))+
+  annotation_north_arrow(
+    location = "bl",
+    which_north = "true",
+    style = north_arrow_fancy_orienteering()
+  )+
+  theme_minimal()+
+  labs(title = "elevation gradient in Nyungwe", fill = "m.a.s.l.")
+
+```
+
+There is an observable difference between the western and the eastern parts of Nyungwe National Park, primarily due to climatic reasons and secondarily due to geological/soil characteristics. Furthermore, from the botanical point of view, three zones can be observed. The lowel level of montane forest (1480 - 2100), the medium level of montane forest (2100 - 2600m), and the upper level of montane forest (2600 - 2900 m). The exact level of the transition between the zones can be between 100 - 200 m depending on the topography of the regions. See the pictures below for reference of how the vegetation in different zones looks like. Note that pictures were taken from @fischer_updated_2024.
+
+At lower montane forest regions, forest communities are dominated by *Parinari excelsa*, *Carapa wohllebenii*, *Newtonia buchananii*, and the endemic *Pentadesma reyndersii* Sprilet (Clusiaceae) occurs here. The lower montane forest is mostly restricted to the western part of Nyungwe (mostly Gisakura, Karamba, and between Pindura and Bweyeye).
+
+Montane forest belt at medium altitudes is well developed near Uwinka, the forest communities are dominated by *Ocotea michelsonii*, *Syzygium guineense*, *Belschmiedia rwandensis*, *Macaranga kilimandcharica*, *Balthasaria schliebenii*, and as you move toward the eastern part *Macaranga kilimandcharica* and *Neoboutonia macrocalyx* are dominant.
+
+The higher mountain elevation comprising the Bigugu massif are covered by a characteristic cloud forest of trees with coriaceous leaves, which benefits from high precipitation mainly as fog. Dominant tree species in this belt include *Psychotria mahoni*, *Podocarpus milanjianus*, *Syzygium parvifolium*, the abundant shrub is *Mimulopsis solmsii*. The forest is also characterized by large number of epiphytes, especially bryophytes and lichens.
+
+![Lower montane forest](images/Screenshot%202025-02-23%20143347-01.png)
+
+![Lower montane forest](images/Screenshot%202025-02-23%20143440.png)
+
+![Mid-altitude montane forest](images/Screenshot%202025-02-23%20143510.png)
+
+![High elevation montane forest](images/Screenshot%202025-02-23%20144355-01.png)
+
+![High elevation montane forest](images/Screenshot%202025-02-23%20144355-01.png)
+
+## References

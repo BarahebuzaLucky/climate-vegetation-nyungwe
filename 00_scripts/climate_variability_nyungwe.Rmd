@@ -1,0 +1,205 @@
+---
+title: "climateNyungwe"
+author: "Murengera Aime Lucky Barahebuza"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# How did temperature and precipitation change between 1970 - 2000 in Nyungwe National Park, Rwanda?
+
+## Loading necessary packages and data
+```{r setup, include=FALSE}
+# library
+
+library(geodata)
+library(raster)
+library(tidyverse)
+library(ggplot2)
+
+# loading temperature and precipitation data from WorldClim
+
+temp_min <- worldclim_global(var = "tmin", res = 0.5, path = "01_data")
+temp_max <- worldclim_global(var = "tmax", res = 0.5, path = "01_data")
+temp_mean <- worldclim_global(var = "tavg", res = 0.5, path = "01_data")
+prec <- worldclim_global(var = "prec", res = 0.5, path = "01_data")
+
+# loading Nyungwe National Park shapefile
+park_shp <- st_read("01_data/WDPA_WDOECM_Feb2025_Public_9148_shp_0/WDPA_WDOECM_Feb2025_Public_9148_shp-polygons.shp")
+
+```
+
+## plot the data first
+```{r}
+# Ploting Nyungwe National park
+
+ggplot() +
+  geom_sf(data = park_shp, fill = "darkgreen", color = "black") +
+  theme_minimal() +
+  labs(title = "Nyungwe National Park, Rwanda")
+
+```
+
+## How is the min temperature changing throught the year in Nyungwe?
+```{r}
+# crop raster files to the extent of Nyungwe National Park
+
+nyungwe_crop <- raster::crop(temp_min, park_shp)
+nyungwe_mask <- raster::mask(nyungwe_crop, park_shp)
+
+# creating a dataframe to use
+
+nyungwe_df <- as.data.frame(nyungwe_mask, xy = TRUE, na.rm = TRUE)
+colnames(nyungwe_df)[3:14] <- month.abb
+colnames(nyungwe_df)[1:2] <- c("longitude", "latitude")
+
+# reshape the data to long format using tidyr
+
+nyungwe_df <- pivot_longer(nyungwe_df, cols = Jan:Dec, names_to = "month", values_to = "temperature")
+
+# converting month to an ordered factor
+
+nyungwe_df$month <- factor(nyungwe_df$month, levels = month.abb)
+
+# plot using ggplot
+
+ggplot()+
+  geom_tile(data = nyungwe_df, aes(x = longitude, y = latitude, fill = temperature))+
+  geom_sf(data = park_shp, fill = NA, color = "black")+
+  scale_fill_viridis_c( limits = c(8, 14))+
+  facet_wrap(~month, ncol = 4)+
+  theme_minimal()+
+  labs(title = "Minimun Temperature in Nyungwe (1970 - 2000)", fill = "°C")
+
+# plot linear trend
+
+monthly_min_mean <- nyungwe_df |> group_by(month) |>
+  summarise(mean_temperature = mean(temperature, na.rm = TRUE))
+
+ggplot( monthly_min_mean, aes(x = month, y = mean_temperature, group = 1))+
+  geom_line(color = "blue", linewidth = 1)+
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed")+
+  theme_minimal()+
+  labs(title = "Linear Monthly Temperature Trend", y = "Mean Temperature (°C)", x = "Month")
+
+```
+
+## How is the max temperature changing throught the year in Nyungwe?
+```{r}
+# crop raster files to the extent of Nyungwe National Park
+
+nyungwe_maxt_crop <- raster::crop(temp_max, park_shp)
+nyungwe_maxt_mask <- raster::mask(nyungwe_maxt_crop, park_shp)
+
+# creating a dataframe to use
+
+nyungwe_max_df <- as.data.frame(nyungwe_maxt_mask, xy = TRUE, na.rm = TRUE)
+colnames(nyungwe_max_df)[3:14] <- month.abb
+colnames(nyungwe_max_df)[1:2] <- c("longitude", "latitude")
+
+# reshape the data to long format using tidyr
+
+nyungwe_max_df <- pivot_longer(nyungwe_max_df, cols = Jan:Dec, names_to = "month", values_to = "temperature")
+
+# converting month to an ordered factor
+
+nyungwe_max_df$month <- factor(nyungwe_max_df$month, levels = month.abb)
+
+# plot using ggplot
+
+ggplot()+
+  geom_tile(data = nyungwe_max_df, aes(x = longitude, y = latitude, fill = temperature))+
+  geom_sf(data = park_shp, fill = NA, color = "black")+
+  scale_fill_viridis_c( limits = c(16, 24))+
+  facet_wrap(~month, ncol = 4)+
+  theme_minimal()+
+  labs(title = "Maximum Temperature in Nyungwe (1970 - 2000)", fill = "°C")
+```
+
+## How is the average temperature changing throught the year in Nyungwe?
+```{r}
+# crop raster files to the extent of Nyungwe National Park
+
+nyungwe_avg_crop <- raster::crop(temp_mean, park_shp)
+nyungwe_avg_mask <- raster::mask(nyungwe_avg_crop, park_shp)
+
+# creating a dataframe to use
+
+nyungwe_avg_df <- as.data.frame(nyungwe_avg_mask, xy = TRUE, na.rm = TRUE)
+colnames(nyungwe_avg_df)[3:14] <- month.abb
+colnames(nyungwe_avg_df)[1:2] <- c("longitude", "latitude")
+
+# reshape the data to long format using tidyr
+
+nyungwe_avg_df <- pivot_longer(nyungwe_avg_df, cols = Jan:Dec, names_to = "month", values_to = "temperature")
+
+# converting month to an ordered factor
+
+nyungwe_avg_df$month <- factor(nyungwe_avg_df$month, levels = month.abb)
+
+# plot using ggplot
+
+ggplot()+
+  geom_tile(data = nyungwe_avg_df, aes(x = longitude, y = latitude, fill = temperature))+
+  geom_sf(data = park_shp, fill = NA, color = "black")+
+  scale_fill_viridis_c(limits = c(12, 20))+
+  facet_wrap(~month, ncol = 4)+
+  theme_minimal()+
+  labs(title = "Average Temperature in Nyungwe (1970 - 2000)", fill = "°C")
+
+```
+
+# How is the average precipitation changing throught the year in Nyungwe?
+```{r}
+# crop raster files to the extent of Nyungwe National Park
+
+nyungwe_prec_crop <- raster::crop(prec, park_shp)
+nyungwe_prec_mask <- raster::mask(nyungwe_prec_crop, park_shp)
+
+# creating a dataframe to use
+
+nyungwe_prec_df <- as.data.frame(nyungwe_prec_mask, xy = TRUE, na.rm = TRUE)
+colnames(nyungwe_prec_df)[3:14] <- month.abb
+colnames(nyungwe_prec_df)[1:2] <- c("longitude", "latitude")
+
+# reshape the data to long format using tidyr
+
+nyungwe_prec_df <- pivot_longer(nyungwe_prec_df, cols = Jan:Dec, names_to = "month", values_to = "precipitation")
+
+# converting month to an ordered factor
+
+nyungwe_prec_df$month <- factor(nyungwe_prec_df$month, levels = month.abb)
+
+# plot using ggplot
+
+ggplot()+
+  geom_tile(data = nyungwe_prec_df, aes(x = longitude, y = latitude, fill = precipitation))+
+  geom_sf(data = park_shp, fill = NA, color = "black")+
+  scale_fill_viridis_c(limits = c(12, 270))+
+  facet_wrap(~month, ncol = 4)+
+  theme_minimal()+
+  labs(title = "Monthly Precipitation in Nyungwe (1970 - 2000)", fill = "mm")
+```
+
+# Yearly temperature trend between 1970-2000 in Nyungwe 
+```{r}
+library(raster)
+library(ggplot2)
+
+# Load monthly temperature data from WorldClim
+tmean_stack <- stack("wc2.1_2.5m_tavg_*.tif")  # Replace with the correct path and files
+
+# Calculate yearly average (assuming each 12 layers represent one year)
+yearly_avg <- calc(tmean_stack, fun = function(x) rowMeans(matrix(x, nrow=12), na.rm=TRUE))
+
+# Convert to a data frame for plotting
+years <- 1970:2000  # Adjust based on your data
+temp_df <- data.frame(Year = years, Temperature = yearly_avg[])
+
+# Plot the trend
+ggplot(temp_df, aes(x = Year, y = Temperature)) +
+  geom_line(color = "blue") +
+  geom_point() +
+  labs(title = "Yearly Temperature Trend (WorldClim Data)", x = "Year", y = "Mean Temperature (°C)") +
+  theme_minimal()
+
+```
